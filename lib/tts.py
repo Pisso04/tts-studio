@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Moteur TTS Coqui XTTS v2 — appelé par Next.js via subprocess.
+Moteur TTS F5-TTS — appelé par Next.js via subprocess.
 Écrit les logs dans jobs/<jobId>/progress.log
 Génère les segments dans jobs/<jobId>/output/
 """
@@ -57,7 +57,7 @@ def nombre_en_lettres(n: int) -> str:
 
 
 def normaliser_texte(texte: str) -> str:
-    texte = re.sub(r'["\u201c\u201d\u00ab\u00bb\""]', '', texte)
+    texte = re.sub(r'["\u201c\u201d\u00ab\u00bb""]', '', texte)
     texte = re.sub(r'[—\u2014\u2013–]\s*', '', texte)
     texte = texte.replace("...", ".")
     texte = re.sub(r'(\d{1,2})h(\d{2})?', lambda m: f"{nombre_en_lettres(int(m.group(1)))} heures{' ' + nombre_en_lettres(int(m.group(2))) if m.group(2) else ''}", texte)
@@ -69,7 +69,7 @@ def normaliser_texte(texte: str) -> str:
     return texte
 
 
-def decouper_en_phrases(texte: str, max_len: int = 220) -> list:
+def decouper_en_phrases(texte: str, max_len: int = 200) -> list:
     segments = re.split(r'(?<=[.!?])\s+', texte)
     phrases = []
     for seg in segments:
@@ -137,11 +137,10 @@ def main():
     parser.add_argument("-r", "--reference", required=True)
     parser.add_argument("-o", "--output-dir", required=True)
     parser.add_argument("-l", "--log-file", required=True)
-    parser.add_argument("-s", "--speed", type=float, default=1.0)
     parser.add_argument("-f", "--format", choices=["wav", "mp3"], default="mp3")
     parser.add_argument("--gpu", action="store_true")
     parser.add_argument("--silence", type=int, default=300)
-    parser.add_argument("--max-len", type=int, default=220)
+    parser.add_argument("--max-len", type=int, default=200)
     parser.add_argument("--lang", default="fr")
     args = parser.parse_args()
 
@@ -157,9 +156,11 @@ def main():
     log(log_file, f"TOTAL:{len(segments)}")
     log(log_file, "STATUS:loading")
 
-    from TTS.api import TTS
-    device = "cuda" if args.gpu else "cpu"
-    tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
+    import torch
+    from f5_tts.api import F5TTS
+
+    device = "cuda" if (args.gpu and torch.cuda.is_available()) else "cpu"
+    tts = F5TTS(device=device)
 
     log(log_file, "STATUS:ready")
     os.makedirs(args.output_dir, exist_ok=True)
@@ -176,12 +177,11 @@ def main():
         for i, phrase in enumerate(phrases):
             out_path = os.path.join(tmpdir, f"seg{num}_p{i:03d}.wav")
             try:
-                tts.tts_to_file(
-                    text=phrase,
-                    speaker_wav=args.reference,
-                    language=args.lang,
-                    speed=args.speed,
-                    file_path=out_path,
+                wav, sr, _ = tts.infer(
+                    ref_file=args.reference,
+                    ref_text="",
+                    gen_text=phrase,
+                    file_wave=out_path,
                 )
                 if os.path.exists(out_path):
                     fichiers_phrases.append(out_path)
