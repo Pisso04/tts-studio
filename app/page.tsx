@@ -98,12 +98,17 @@ export default function Home() {
     if (params.colabUrl) fd.append("colabUrl", params.colabUrl);
 
     const res = await fetch("/api/generate", { method: "POST", body: fd });
-    const { jobId: id, error } = await res.json();
-
-    if (error) {
+    if (!res.ok) {
       setStatus("error");
       return;
     }
+
+    const data = await res.json().catch(() => null);
+    if (!data || data.error) {
+      setStatus("error");
+      return;
+    }
+    const id = data.jobId;
 
     setJobId(id);
     setStatus("running");

@@ -20,21 +20,27 @@ function getPythonCmd(): string {
 
 // ── Mode Colab : proxy vers le serveur Flask ngrok ──
 async function generateColab(formData: FormData, colabUrl: string) {
-  const job_id = uuidv4();
+  try {
+    const fd = new FormData();
+    fd.append("json", formData.get("json") as Blob);
+    fd.append("reference", formData.get("reference") as Blob);
+    fd.append("lang", formData.get("lang") as string);
+    fd.append("speed", formData.get("speed") as string);
+    fd.append("format", formData.get("format") as string);
+    fd.append("silence", formData.get("silence") as string);
 
-  const fd = new FormData();
-  fd.append("json", formData.get("json") as Blob);
-  fd.append("reference", formData.get("reference") as Blob);
-  fd.append("lang", formData.get("lang") as string);
-  fd.append("speed", formData.get("speed") as string);
-  fd.append("format", formData.get("format") as string);
-  fd.append("silence", formData.get("silence") as string);
+    const res = await fetch(`${colabUrl}/generate`, { method: "POST", body: fd });
 
-  const res = await fetch(`${colabUrl}/generate`, { method: "POST", body: fd });
-  const data = await res.json();
+    if (!res.ok) {
+      const text = await res.text();
+      return NextResponse.json({ error: `Colab error ${res.status}: ${text}` }, { status: 502 });
+    }
 
-  // On retourne le jobId Colab + l'URL pour que le frontend sache où poller
-  return NextResponse.json({ jobId: data.jobId, mode: "colab", colabUrl });
+    const data = await res.json();
+    return NextResponse.json({ jobId: data.jobId, mode: "colab", colabUrl });
+  } catch (e: any) {
+    return NextResponse.json({ error: `Impossible de joindre Colab: ${e.message}` }, { status: 502 });
+  }
 }
 
 // ── Mode Local : subprocess Python ──
