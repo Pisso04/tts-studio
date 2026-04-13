@@ -19,24 +19,26 @@ export async function GET(
 
         let lastDone = 0;
         let finished = false;
+        let totalSent = false;
 
         const poll = async () => {
           try {
             const res = await fetch(`${colabUrl}/status/${jobId}`);
             const job = await res.json();
 
-            if (job.total && job.total > 0) {
+            if (!totalSent && job.total > 0) {
               send(`TOTAL:${job.total}`);
+              totalSent = true;
             }
 
             send(`STATUS:${job.status}`);
 
-            // Envoyer les nouveaux segments
-            const segments: string[] = job.segments || [];
-            for (let i = lastDone; i < segments.length; i++) {
-              send(`DONE:${i + 1}:${segments[i]}`);
+            // Émettre un DONE: pour chaque nouveau segment
+            const segs: string[] = job.segments || [];
+            for (let i = lastDone; i < segs.length; i++) {
+              send(`DONE:${i + 1}:${segs[i]}`);
             }
-            lastDone = segments.length;
+            lastDone = segs.length;
 
             if (job.status === "finished") {
               finished = true;
