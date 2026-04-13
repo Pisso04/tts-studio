@@ -31,7 +31,9 @@ export type LogLine =
   | { type: "error"; message: string };
 
 export default function Home() {
+  const [inputMode, setInputMode] = useState<"json" | "text">("json");
   const [jsonFile, setJsonFile] = useState<File | null>(null);
+  const [textInput, setTextInput] = useState("");
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [params, setParams] = useState<JobParams>({
     lang: "fr",
@@ -67,15 +69,26 @@ export default function Home() {
   }, []);
 
   const startGeneration = async () => {
-    if (!jsonFile || !audioFile) return;
+    if (!audioFile) return;
+    if (inputMode === "json" && !jsonFile) return;
+    if (inputMode === "text" && !textInput.trim()) return;
 
     setLogs([]);
     setSegments([]);
     setStatus("loading");
     setTotal(0);
 
+    // Convertir le texte en JSON si mode texte
+    let jsonBlob: Blob;
+    if (inputMode === "text") {
+      const segments = textInput.split(/\n{2,}/).map(s => s.trim()).filter(Boolean);
+      jsonBlob = new Blob([JSON.stringify(segments)], { type: "application/json" });
+    } else {
+      jsonBlob = jsonFile!;
+    }
+
     const fd = new FormData();
-    fd.append("json", jsonFile);
+    fd.append("json", jsonBlob, "input.json");
     fd.append("reference", audioFile);
     fd.append("lang", params.lang);
     fd.append("speed", params.speed);
@@ -144,7 +157,11 @@ export default function Home() {
     };
   };
 
-  const canStart = jsonFile && audioFile && status !== "running" && status !== "loading";
+  const canStart =
+    audioFile &&
+    (inputMode === "json" ? !!jsonFile : !!textInput.trim()) &&
+    status !== "running" &&
+    status !== "loading";
 
   return (
     <main className="min-h-screen bg-gray-950 text-gray-100 p-6">
@@ -154,15 +171,48 @@ export default function Home() {
           <p className="text-gray-400 text-sm">Génération audio par clonage vocal avec Coqui XTTS v2</p>
         </header>
 
+        {/* Toggle JSON / Texte */}
+        <div className="flex bg-gray-900 rounded-xl p-1 gap-1">
+          {(["json", "text"] as const).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setInputMode(mode)}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all
+                ${inputMode === mode ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-white"}`}
+            >
+              {mode === "json" ? "📄 Fichier JSON" : "✏️ Texte libre"}
+            </button>
+          ))}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <UploadZone
-            label="Fichier JSON"
-            accept=".json"
-            icon="📄"
-            file={jsonFile}
-            onFile={setJsonFile}
-            hint="Liste de segments texte"
-          />
+          {inputMode === "json" ? (
+            <UploadZone
+              label="Fichier JSON"
+              accept=".json"
+              icon="📄"
+              file={jsonFile}
+              onFile={setJsonFile}
+              hint="Liste de segments texte"
+            />
+          ) : (
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">Texte à synthétiser</label>
+              <textarea
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                placeholder={`Écris ton texte ici...\n\nSépare les paragraphes par une ligne vide pour créer plusieurs segments.`}
+                rows={6}
+                className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white
+                  placeholder-gray-600 focus:outline-none focus:border-indigo-500 resize-none"
+              />
+              {textInput && (
+                <p className="text-xs text-gray-500">
+                  {textInput.split(/\n{2,}/).filter(s => s.trim()).length} segment(s)
+                </p>
+              )}
+            </div>
+          )}
           <UploadZone
             label="Audio de référence"
             accept=".mp3,.wav,.m4a,.ogg"
