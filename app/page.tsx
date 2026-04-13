@@ -12,12 +12,14 @@ export type JobParams = {
   format: "wav" | "mp3";
   silence: string;
   gpu: boolean;
+  colabUrl: string;
 };
 
 export type SegmentResult = {
   name: string;
   jobId: string;
   index: number;
+  colabUrl?: string;
 };
 
 export type LogLine =
@@ -37,6 +39,7 @@ export default function Home() {
     format: "mp3",
     silence: "300",
     gpu: false,
+    colabUrl: "",
   });
 
   const [jobId, setJobId] = useState<string | null>(null);
@@ -79,6 +82,7 @@ export default function Home() {
     fd.append("format", params.format);
     fd.append("silence", params.silence);
     fd.append("gpu", String(params.gpu));
+    if (params.colabUrl) fd.append("colabUrl", params.colabUrl);
 
     const res = await fetch("/api/generate", { method: "POST", body: fd });
     const { jobId: id, error } = await res.json();
@@ -93,7 +97,8 @@ export default function Home() {
 
     let runningTotal = 0;
 
-    const es = new EventSource(`/api/stream/${id}`);
+    const colabParam = params.colabUrl ? `?colabUrl=${encodeURIComponent(params.colabUrl)}` : "";
+    const es = new EventSource(`/api/stream/${id}${colabParam}`);
     esRef.current = es;
 
     es.onmessage = (e) => {
@@ -121,7 +126,7 @@ export default function Home() {
       if (parsed.type === "done") {
         setSegments((prev) => [
           ...prev,
-          { name: parsed.file, jobId: id, index: parsed.index },
+          { name: parsed.file, jobId: id, index: parsed.index, colabUrl: params.colabUrl },
         ]);
       }
 

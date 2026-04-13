@@ -8,10 +8,15 @@ type Props = {
 };
 
 export default function ResultsPanel({ segments, format }: Props) {
+  const getUrl = (seg: SegmentResult) => {
+    const base = `/api/download/${seg.jobId}/${seg.name}`;
+    return seg.colabUrl ? `${base}?colabUrl=${encodeURIComponent(seg.colabUrl)}` : base;
+  };
+
   const downloadAll = () => {
     segments.forEach((seg) => {
       const a = document.createElement("a");
-      a.href = `/api/download/${seg.jobId}/${seg.name}`;
+      a.href = getUrl(seg);
       a.download = seg.name;
       a.click();
     });
@@ -43,13 +48,13 @@ export default function ResultsPanel({ segments, format }: Props) {
 
             <audio
               controls
-              src={`/api/download/${seg.jobId}/${seg.name}`}
+              src={getUrl(seg)}
               className="flex-1 h-8"
               style={{ minWidth: 0 }}
             />
 
             <a
-              href={`/api/download/${seg.jobId}/${seg.name}`}
+              href={getUrl(seg)}
               download={seg.name}
               className="text-indigo-400 hover:text-indigo-300 text-xs shrink-0 transition-all"
             >

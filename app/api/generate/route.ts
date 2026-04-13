@@ -3,10 +3,8 @@ import { writeFile, mkdir } from "fs/promises";
 import { spawn } from "child_process";
 import { v4 as uuidv4 } from "uuid";
 import path from "path";
-import { existsSync } from "fs";
 
 function getPythonCmd(): string {
-  // Sur Windows, python3 peut s'appeler python
   const candidates = ["python3", "python"];
   for (const cmd of candidates) {
     try {
@@ -20,8 +18,27 @@ function getPythonCmd(): string {
   return "python3";
 }
 
-export async function POST(req: NextRequest) {
-  const formData = await req.formData();
+// ── Mode Colab : proxy vers le serveur Flask ngrok ──
+async function generateColab(formData: FormData, colabUrl: string) {
+  const job_id = uuidv4();
+
+  const fd = new FormData();
+  fd.append("json", formData.get("json") as Blob);
+  fd.append("reference", formData.get("reference") as Blob);
+  fd.append("lang", formData.get("lang") as string);
+  fd.append("speed", formData.get("speed") as string);
+  fd.append("format", formData.get("format") as string);
+  fd.append("silence", formData.get("silence") as string);
+
+  const res = await fetch(`${colabUrl}/generate`, { method: "POST", body: fd });
+  const data = await res.json();
+
+  // On retourne le jobId Colab + l'URL pour que le frontend sache où poller
+  return NextResponse.json({ jobId: data.jobId, mode: "colab", colabUrl });
+}
+
+// ── Mode Local : subprocess Python ──
+async function generateLocal(formData: FormData) {
   const jsonFile = formData.get("json") as File;
   const audioFile = formData.get("reference") as File;
   const lang = (formData.get("lang") as string) || "fr";
@@ -29,10 +46,6 @@ export async function POST(req: NextRequest) {
   const format = (formData.get("format") as string) || "mp3";
   const silence = (formData.get("silence") as string) || "300";
   const gpu = formData.get("gpu") === "true";
-
-  if (!jsonFile || !audioFile) {
-    return NextResponse.json({ error: "Fichiers manquants" }, { status: 400 });
-  }
 
   const jobId = uuidv4();
   const jobDir = path.join(process.cwd(), "jobs", jobId);
@@ -42,7 +55,8 @@ export async function POST(req: NextRequest) {
   await mkdir(outputDir, { recursive: true });
 
   const jsonPath = path.join(jobDir, "input.json");
-  const refPath = path.join(jobDir, `reference.${audioFile.name.split(".").pop()}`);
+  const refExt = audioFile.name.split(".").pop();
+  const refPath = path.join(jobDir, `reference.${refExt}`);
 
   await writeFile(jsonPath, Buffer.from(await jsonFile.arrayBuffer()));
   await writeFile(refPath, Buffer.from(await audioFile.arrayBuffer()));
@@ -65,5 +79,16 @@ export async function POST(req: NextRequest) {
   const child = spawn(pythonCmd, args, { detached: true, stdio: "ignore" });
   child.unref();
 
-  return NextResponse.json({ jobId });
+  return NextResponse.json({ jobId, mode: "local" });
+}
+
+export async function POST(req: NextRequest) {
+  const formData = await req.formData();
+  const colabUrl = formData.get("colabUrl") as string;
+
+  if (colabUrl && colabUrl.startsWith("http")) {
+    return generateColab(formData, colabUrl.replace(/\/$/, ""));
+  }
+
+  return generateLocal(formData);
 }

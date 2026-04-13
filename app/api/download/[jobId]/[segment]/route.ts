@@ -1,49 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFile, readdir } from "fs/promises";
+import { readFile } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ jobId: string; segment: string }> }
 ) {
   const { jobId, segment } = await params;
-  const filePath = path.join(
-    process.cwd(),
-    "jobs",
-    jobId,
-    "output",
-    segment
-  );
+  const colabUrl = req.nextUrl.searchParams.get("colabUrl");
 
+  // ── Mode Colab : proxy du fichier depuis Flask ──
+  if (colabUrl) {
+    const res = await fetch(`${colabUrl}/download/${jobId}/${segment}`);
+    if (!res.ok) return NextResponse.json({ error: "Fichier introuvable" }, { status: 404 });
+    const buffer = await res.arrayBuffer();
+    const ext = segment.split(".").pop();
+    return new NextResponse(buffer, {
+      headers: {
+        "Content-Type": ext === "mp3" ? "audio/mpeg" : "audio/wav",
+        "Content-Disposition": `attachment; filename="${segment}"`,
+      },
+    });
+  }
+
+  // ── Mode Local ──
+  const filePath = path.join(process.cwd(), "jobs", jobId, "output", segment);
   if (!existsSync(filePath)) {
     return NextResponse.json({ error: "Fichier introuvable" }, { status: 404 });
   }
-
   const buffer = await readFile(filePath);
   const ext = segment.split(".").pop();
-  const contentType = ext === "mp3" ? "audio/mpeg" : "audio/wav";
-
   return new NextResponse(buffer, {
     headers: {
-      "Content-Type": contentType,
+      "Content-Type": ext === "mp3" ? "audio/mpeg" : "audio/wav",
       "Content-Disposition": `attachment; filename="${segment}"`,
     },
   });
-}
-
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: Promise<{ jobId: string; segment: string }> }
-) {
-  const { jobId, segment } = await params;
-  if (segment === "list") {
-    const outputDir = path.join(process.cwd(), "jobs", jobId, "output");
-    if (!existsSync(outputDir)) {
-      return NextResponse.json({ segments: [] });
-    }
-    const files = await readdir(outputDir);
-    return NextResponse.json({ segments: files.sort() });
-  }
-  return NextResponse.json({ error: "Non supporté" }, { status: 400 });
 }

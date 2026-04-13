@@ -71,6 +71,26 @@ export default function ParamsPanel({ params, onChange }: Props) {
         </button>
         <span className="text-sm text-gray-300">Utiliser le GPU</span>
       </div>
+
+      <div className="col-span-2 md:col-span-4 space-y-1">
+        <label className="text-xs text-gray-400">
+          🌐 URL Colab ngrok{" "}
+          <span className="text-gray-600">(laisser vide pour mode local)</span>
+        </label>
+        <input
+          type="text"
+          placeholder="https://xxxx-xx-xx-xx-xx.ngrok-free.app"
+          value={params.colabUrl}
+          onChange={(e) => set("colabUrl", e.target.value)}
+          className="w-full bg-gray-800 rounded-lg px-3 py-2 text-sm text-white border border-gray-700 focus:outline-none focus:border-indigo-500 placeholder-gray-600"
+        />
+        {params.colabUrl && (
+          <p className="text-xs text-indigo-400">✅ Mode Colab activé — GPU gratuit</p>
+        )}
+        {!params.colabUrl && (
+          <p className="text-xs text-gray-600">Mode local — Python subprocess</p>
+        )}
+      </div>
     </div>
   );
 }
