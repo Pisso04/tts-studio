@@ -120,6 +120,7 @@ export default function Home() {
     esRef.current = es;
 
     es.onmessage = (e) => {
+      console.log('[SSE]', e.data);
       const parsed = parseLine(e.data, runningTotal);
       if (!parsed) return;
 

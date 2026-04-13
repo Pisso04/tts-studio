@@ -31,14 +31,14 @@ export async function GET(
               totalSent = true;
             }
 
-            send(`STATUS:${job.status}`);
-
-            // Émettre un DONE: pour chaque nouveau segment
+            // Émettre les DONE: en premier avant STATUS
             const segs: string[] = job.segments || [];
             for (let i = lastDone; i < segs.length; i++) {
               send(`DONE:${i + 1}:${segs[i]}`);
             }
             lastDone = segs.length;
+
+            send(`STATUS:${job.status}`);
 
             if (job.status === "finished") {
               finished = true;
