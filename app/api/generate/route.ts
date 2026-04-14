@@ -21,13 +21,19 @@ function getPythonCmd(): string {
 // ── Mode Colab : proxy vers le serveur Flask ngrok ──
 async function generateColab(formData: FormData, colabUrl: string) {
   try {
+    const engine = (formData.get("engine") as string) || "coqui";
     const fd = new FormData();
     fd.append("json", formData.get("json") as Blob);
-    fd.append("reference", formData.get("reference") as Blob);
-    fd.append("lang", formData.get("lang") as string);
-    fd.append("speed", formData.get("speed") as string);
     fd.append("format", formData.get("format") as string);
     fd.append("silence", formData.get("silence") as string);
+
+    if (engine === "voxtral") {
+      fd.append("voice", (formData.get("voice") as string) || "fr_female_1");
+    } else {
+      fd.append("reference", formData.get("reference") as Blob);
+      fd.append("lang", formData.get("lang") as string);
+      fd.append("speed", formData.get("speed") as string);
+    }
 
     const res = await fetch(`${colabUrl}/generate`, { method: "POST", body: fd });
 

@@ -9,14 +9,50 @@ type Props = {
 
 const LANGS = ["fr", "en", "es", "de", "it", "pt", "pl", "tr", "ru", "nl", "cs", "ar", "zh-cn", "ja"];
 
+const VOXTRAL_VOICES = [
+  "fr_female_1", "fr_male_1",
+  "af_heart", "af_bella", "af_nicole",
+  "am_adam", "am_michael",
+  "bf_emma", "bf_isabella",
+  "bm_george", "bm_lewis",
+];
+
 export default function ParamsPanel({ params, onChange }: Props) {
   const set = (key: keyof JobParams, value: string | boolean) =>
     onChange({ ...params, [key]: value });
 
   return (
     <div className="bg-gray-900 rounded-xl p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Moteur */}
+      <div className="col-span-2 md:col-span-4 space-y-1">
+        <label className="text-xs text-gray-400">Moteur TTS</label>
+        <div className="flex gap-2">
+          {(["coqui", "voxtral"] as const).map((e) => (
+            <button
+              key={e}
+              onClick={() => set("engine", e)}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all
+                ${params.engine === e ? "bg-indigo-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}
+            >
+              {e === "coqui" ? "🐸 Coqui XTTS v2" : "⚡ Voxtral 4B"}
+            </button>
+          ))}
+        </div>
+      </div>
+      {params.engine === "voxtral" && (
+        <div className="col-span-2 md:col-span-4 space-y-1">
+          <label className="text-xs text-gray-400">Voix</label>
+          <select
+            value={params.voice}
+            onChange={(e) => set("voice", e.target.value)}
+            className="w-full bg-gray-800 rounded-lg px-3 py-2 text-sm text-white border border-gray-700 focus:outline-none focus:border-indigo-500"
+          >
+            {VOXTRAL_VOICES.map((v) => <option key={v} value={v}>{v}</option>)}
+          </select>
+        </div>
+      )}
+
       <div className="space-y-1">
-        <label className="text-xs text-gray-400">Langue</label>
         <select
           value={params.lang}
           onChange={(e) => set("lang", e.target.value)}

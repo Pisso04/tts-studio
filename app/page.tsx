@@ -13,6 +13,8 @@ export type JobParams = {
   silence: string;
   gpu: boolean;
   colabUrl: string;
+  engine: "coqui" | "voxtral";
+  voice: string;
 };
 
 export type SegmentResult = {
@@ -42,6 +44,8 @@ export default function Home() {
     silence: "300",
     gpu: false,
     colabUrl: "",
+    engine: "coqui",
+    voice: "fr_female_1",
   });
 
   const [jobId, setJobId] = useState<string | null>(null);
@@ -95,6 +99,8 @@ export default function Home() {
     fd.append("format", params.format);
     fd.append("silence", params.silence);
     fd.append("gpu", String(params.gpu));
+    fd.append("engine", params.engine || "coqui");
+    fd.append("voice", params.voice || "fr_female_1");
     if (params.colabUrl) fd.append("colabUrl", params.colabUrl);
 
     const res = await fetch("/api/generate", { method: "POST", body: fd });
@@ -164,7 +170,7 @@ export default function Home() {
   };
 
   const canStart =
-    audioFile &&
+    (params.engine === "voxtral" || !!audioFile) &&
     (inputMode === "json" ? !!jsonFile : !!textInput.trim()) &&
     status !== "running" &&
     status !== "loading";
@@ -174,7 +180,9 @@ export default function Home() {
       <div className="max-w-4xl mx-auto space-y-6">
         <header className="text-center space-y-1">
           <h1 className="text-3xl font-bold text-white">🎙️ TTS Studio</h1>
-          <p className="text-gray-400 text-sm">Génération audio par clonage vocal avec Coqui XTTS v2</p>
+          <p className="text-gray-400 text-sm">
+            {params.engine === "voxtral" ? "Génération audio avec Voxtral 4B (vLLM)" : "Génération audio par clonage vocal avec Coqui XTTS v2"}
+          </p>
         </header>
 
         {/* Toggle JSON / Texte */}
@@ -219,14 +227,16 @@ export default function Home() {
               )}
             </div>
           )}
-          <UploadZone
-            label="Audio de référence"
-            accept=".mp3,.wav,.m4a,.ogg"
-            icon="🎤"
-            file={audioFile}
-            onFile={setAudioFile}
-            hint="3 à 10 secondes recommandé"
-          />
+          {params.engine !== "voxtral" && (
+            <UploadZone
+              label="Audio de référence"
+              accept=".mp3,.wav,.m4a,.ogg"
+              icon="🎤"
+              file={audioFile}
+              onFile={setAudioFile}
+              hint="3 à 10 secondes recommandé"
+            />
+          )}
         </div>
 
         <ParamsPanel params={params} onChange={setParams} />
